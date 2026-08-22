@@ -106,7 +106,7 @@ elif page=="Report Analyzer":
         else: text=raw.decode(errors='ignore')
         labs=extract_labs(text)
         execute("INSERT INTO reports(user_id,uploaded_on,filename,extracted_text,summary) VALUES(?,?,?,?,?)",(uid,today(),f.name,text[:10000],"Local extraction complete")); st.success("Report saved.")
-        if labs: st.dataframe(pd.DataFrame(labs),use_container_width=True)
+        if labs: st.dataframe(pd.DataFrame(labs),width="stretch")
         else: st.warning("No supported common lab values were confidently extracted. Verify the original report.")
         st.markdown(reply("Explain these lab results in simple language and suggest doctor questions: "+str(labs)))
 
@@ -129,8 +129,8 @@ elif page=="Risk Prediction":
             probability,risk=predict(selected,values); factors=shap_factors(selected,values)
             execute("INSERT INTO predictions(user_id,created_on,model,probability,risk,factors) VALUES(?,?,?,?,?,?)",(uid,today(),selected,probability,risk,json.dumps(factors)))
             st.metric("Estimated risk",risk,f"{probability:.1%} model probability")
-            chart=pd.DataFrame(factors); st.plotly_chart(px.bar(chart,x='impact',y='feature',orientation='h',color='impact',title='Local SHAP feature impact'),use_container_width=True)
-            st.dataframe(chart,use_container_width=True)
+            chart=pd.DataFrame(factors); st.plotly_chart(px.bar(chart,x='impact',y='feature',orientation='h',color='impact',title='Local SHAP feature impact'),width="stretch")
+            st.dataframe(chart,width="stretch")
 
 elif page=="Model Evaluation":
     st.header("ML Evaluation Dashboard")
@@ -140,7 +140,7 @@ elif page=="Model Evaluation":
         info=metadata(model_name); st.subheader(model_name.replace('_',' ').title()); st.caption(f"Dataset: {info.get('source','—')} · Selected: {info.get('selected_model','—')}")
         metrics=info.get('metrics',{})
         if metrics:
-            frame=pd.DataFrame(metrics).T.reset_index(names='model'); st.dataframe(frame.style.format({c:'{:.3f}' for c in ['accuracy','precision','recall','f1','roc_auc']}),use_container_width=True)
+            frame=pd.DataFrame(metrics).T.reset_index(names='model'); st.dataframe(frame.style.format({c:'{:.3f}' for c in ['accuracy','precision','recall','f1','roc_auc']}),width="stretch")
 
 elif page=="Wellness Planner":
     st.header("Personalized Wellness Planner")
@@ -152,13 +152,15 @@ elif page=="Analytics & Timeline":
     st.header("Health Analytics & Timeline")
     logs=all_rows("SELECT * FROM health_logs WHERE user_id=? ORDER BY logged_on",(uid,))
     if logs:
-        log_dicts=[dict(x) for x in logs]; df=pd.DataFrame(log_dicts); st.plotly_chart(px.line(df,x='logged_on',y=['weight','glucose','sleep','water'],markers=True),use_container_width=True)
+        log_dicts=[dict(x) for x in logs]; df=pd.DataFrame(log_dicts); st.plotly_chart(px.line(df,x='logged_on',y=['weight','glucose','sleep','water'],markers=True),width="stretch")
         st.subheader("Deterministic trend intelligence")
         insights=analyze_trends(log_dicts)
         if insights:
-            for item in insights: st.warning(item['message']) if item['severity']=='warning' else st.info(item['message'])
+            for item in insights:
+                if item['severity']=='warning': st.warning(item['message'])
+                else: st.info(item['message'])
         else: st.success("No configured threshold or trend alert was detected in the available logs.")
-        st.dataframe(df[['logged_on','note','weight','glucose','sleep','steps']],use_container_width=True)
+        st.dataframe(df[['logged_on','note','weight','glucose','sleep','steps']],width="stretch")
     else: st.info("Add daily logs to see trends.")
 
 else:
