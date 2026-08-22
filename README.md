@@ -7,7 +7,7 @@
 ![Gemini](https://img.shields.io/badge/Google-Gemini%20API-4285F4?logo=google&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-Local%20storage-003B57?logo=sqlite&logoColor=white)
 
-**SwasthAI Health** brings a user’s personal health profile, wellness logs, uploaded reports, AI conversations, risk screening, and doctor-visit preparation into one focused Streamlit experience. It is designed as a privacy-conscious, local-first portfolio prototype inspired by modern AI health companions.
+**SwasthAI Health** brings a user’s personal health profile, wellness logs, uploaded reports, AI conversations, trained risk-screening models, and doctor-visit preparation into one focused Streamlit experience. It combines retrieval-augmented generation (RAG), structured LLM output, classical machine learning, SHAP explainability, and deterministic safety logic instead of acting as a thin chatbot wrapper.
 
 > [!IMPORTANT]
 > SwasthAI is an educational wellness tool—not a medical device. It does not diagnose illnesses, prescribe treatment, or replace qualified clinical care. For chest pain, breathing difficulty, fainting, severe bleeding, or other immediate danger, contact local emergency services right away.
@@ -21,7 +21,7 @@ Profile + Daily Logs + Medical Reports
                  │
                  ▼
         SwasthAI Intelligence Layer
-  (safe AI chat, triage, lab extraction, risk scoring)
+ (RAG + structured AI + trained ML + SHAP + trend detection)
                  │
                  ▼
 Insights + Wellness Guidance + Doctor-Visit Readiness
@@ -34,12 +34,15 @@ Insights + Wellness Guidance + Doctor-Visit Readiness
 | Secure local access | Signup/login with bcrypt-hashed passwords and local SQLite persistence. |
 | Personal health profile | Captures BMI, conditions, allergies, goals, diet preference, and emergency contact. |
 | Daily wellness tracker | Logs weight, water, sleep, activity, BP, glucose, heart rate, SpO₂, stress, and notes. |
-| AI Health Assistant | Gemini-powered, multilingual health-information chat with a safe local Demo Mode fallback. |
+| Context-aware AI assistant | Gemini-powered multilingual chat grounded in the profile, seven recent logs, and locally retrieved report passages. |
+| Report RAG | Chunks uploaded reports, ranks relevant evidence with TF-IDF/cosine similarity, and supplies cited passages to the LLM. |
 | Symptom triage | Detects configured red flags and classifies guidance as Emergency, Urgent, or Routine. |
 | Report intelligence | Extracts text from PDF/text reports and highlights supported common lab values. |
-| Diabetes risk screening | Shows probability, low/medium/high risk band, and the exact factors used. |
+| Trained risk models | Reproducible diabetes, heart-disease, and hypertension pipelines sourced from official UCI datasets. |
+| Explainable AI | Compares Logistic Regression and Random Forest, reports five evaluation metrics, and produces local SHAP feature impacts. |
 | Wellness planner | Produces practical Indian diet and beginner fitness guidance using saved profile context. |
-| Health analytics | Interactive Plotly trends for weight, glucose, sleep, water, activity, and health logs. |
+| Trend intelligence | Interactive Plotly analytics plus deterministic threshold and longitudinal-change detection. |
+| Evaluation dashboard | Displays Accuracy, Precision, Recall, F1, and ROC-AUC for every trained candidate model. |
 | Appointments & emergency | Tracks doctor visits and provides a visible emergency guidance section. |
 
 ## Screenshots
@@ -60,7 +63,11 @@ Add screenshots here after running the project locally.
 | --- | --- |
 | Application | Python, Streamlit |
 | Data | SQLite, Pandas, NumPy |
-| AI | Google Gemini API with safe Demo Mode fallback |
+| Generative AI | Google GenAI SDK, Gemini structured JSON output, Pydantic validation |
+| Retrieval | TF-IDF vectorization and cosine-similarity report RAG |
+| Machine learning | Scikit-learn pipelines, Logistic Regression, Random Forest |
+| Explainable AI | SHAP local feature attribution |
+| Datasets | UCI CDC Diabetes Health Indicators (ID 891), UCI Heart Disease (ID 45) |
 | Report processing | PyMuPDF |
 | Analytics | Plotly |
 | Security | bcrypt, `python-dotenv` |
@@ -75,7 +82,13 @@ SwasthAI-Health/
 ├── utils/
 │   ├── ai.py                # Gemini integration and Demo Mode fallback
 │   ├── database.py          # SQLite schema and persistence helpers
-│   └── health.py            # BMI, score, triage, lab parsing, risk logic
+│   ├── health.py            # BMI, score, triage and lab parsing
+│   ├── rag.py               # Local report retrieval and citations
+│   └── trends.py            # Threshold and trend intelligence
+├── ml/
+│   ├── train_models.py      # UCI ingestion, training and evaluation
+│   ├── predictor.py         # Saved-model inference and SHAP factors
+│   └── saved_models/        # Generated artifacts (ignored by Git)
 ├── tests/
 │   └── test_health.py       # Core utility tests
 ├── data/                    # Local database created at runtime (ignored by Git)
@@ -127,7 +140,15 @@ GEMINI_API_KEY=your_key_here
 
 If no key is configured, SwasthAI still runs in a safe, deterministic **Demo Mode**. Never commit `.env` or an API key to GitHub.
 
-### 5. Start the application
+### 5. Train the ML models
+
+This downloads the two cited UCI datasets, compares Logistic Regression and Random Forest, then stores the selected pipelines, background samples, and evaluation metadata locally.
+
+```bash
+python -m ml.train_models
+```
+
+### 6. Start the application
 
 ```bash
 streamlit run app.py
@@ -139,23 +160,30 @@ streamlit run app.py
 - Health content is processed only when the user chooses to add it.
 - Gemini is optional; health questions get an offline Demo Mode response without it.
 - Red-flag phrases are screened before ordinary AI replies.
+- Personalized AI claims are grounded in retrieved user-report passages where available.
+- Gemini responses use a validated structured schema: summary, observations, next steps, doctor questions, urgency, and limitations.
 - Extracted lab values and AI output must always be verified against the original report and discussed with a qualified clinician when needed.
 
 ## Limitations
 
 - It does not integrate with hospitals, wearables, pharmacies, insurance providers, or emergency services.
 - The lab parser supports a small set of common text-based patterns; it is not a clinical-grade report parser.
-- The risk score is a transparent educational screening calculation, not a trained diagnostic model.
+- The trained models are educational screening models based on public datasets; they are not clinically validated diagnostic tools.
 - This app is intentionally not suitable for storing real sensitive health records in production.
 
 ## Future Enhancements
 
 - OCR support for scanned report images and prescriptions
-- Validated public-dataset ML models with SHAP visualizations
+- Clinician-reviewed evaluation sets and calibration studies
 - Multi-report comparison and doctor-visit PDF export
 - Voice input and accessibility-first elderly mode
 - Encrypted storage and consent-based caregiver sharing
 
 ## Resume-Ready Summary
 
-> Built **SwasthAI Health**, a Python and Streamlit personal health companion that combines daily wellness tracking, AI health conversations, report-based lab-value extraction, symptom triage, explainable diabetes-risk screening, personalized wellness planning, and interactive analytics using SQLite, Gemini API, Pandas, and Plotly.
+> Built **SwasthAI Health**, a Python personal health companion combining report-grounded RAG, structured Gemini responses, reproducible UCI-based disease-risk pipelines, SHAP explainability, symptom triage, longitudinal anomaly detection, SQLite health records, and interactive Plotly analytics.
+
+## Dataset Attribution
+
+- [CDC Diabetes Health Indicators, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/891/cdc+diabetes+health+indicators)
+- [Heart Disease, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/45/heart+disease)
