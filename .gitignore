@@ -4,4 +4,4 @@ __pycache__/
 .streamlit/secrets.toml
 data/swasthai.db
 uploads/
-ml/saved_models/*.joblib
+# Trained model artifacts are intentionally versioned for the portfolio demo.
