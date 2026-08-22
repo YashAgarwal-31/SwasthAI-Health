@@ -47,7 +47,7 @@ Insights + Wellness Guidance + Doctor-Visit Readiness
 
 ## Screenshots
 
-Add screenshots here after running the project locally.
+The gallery paths below are reserved for locally captured application screenshots.
 
 | Dashboard | AI Health Assistant |
 | --- | --- |
@@ -56,6 +56,18 @@ Add screenshots here after running the project locally.
 | Report Analyzer | Risk Prediction |
 | --- | --- |
 | `assets/report-analyzer.png` | `assets/risk-prediction.png` |
+
+## Model Results
+
+The committed artifacts were trained with an 80/20 stratified split (`random_state=42`). The application compares Logistic Regression and Random Forest and selects the higher ROC-AUC candidate.
+
+| Screening model | Selected algorithm | ROC-AUC |
+| --- | --- | ---: |
+| Diabetes | Random Forest | 0.815 |
+| Heart disease | Random Forest | 0.970 |
+| Hypertension | Logistic Regression | 0.794 |
+
+Class imbalance makes Accuracy alone misleading, so the in-app evaluation dashboard also reports Precision, Recall, and F1-score.
 
 ## Technology Stack
 
@@ -88,7 +100,7 @@ SwasthAI-Health/
 ├── ml/
 │   ├── train_models.py      # UCI ingestion, training and evaluation
 │   ├── predictor.py         # Saved-model inference and SHAP factors
-│   └── saved_models/        # Generated artifacts (ignored by Git)
+│   └── saved_models/        # Versioned pipelines, SHAP backgrounds and metrics
 ├── tests/
 │   └── test_health.py       # Core utility tests
 ├── data/                    # Local database created at runtime (ignored by Git)
@@ -142,7 +154,7 @@ If no key is configured, SwasthAI still runs in a safe, deterministic **Demo Mod
 
 ### 5. Train the ML models
 
-This downloads the two cited UCI datasets, compares Logistic Regression and Random Forest, then stores the selected pipelines, background samples, and evaluation metadata locally.
+Pre-trained artifacts are included. To reproduce them, this command downloads the two cited UCI datasets, compares Logistic Regression and Random Forest, then replaces the pipelines, SHAP background samples, and evaluation metadata locally.
 
 ```bash
 python -m ml.train_models
@@ -187,3 +199,9 @@ streamlit run app.py
 
 - [CDC Diabetes Health Indicators, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/891/cdc+diabetes+health+indicators)
 - [Heart Disease, UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/45/heart+disease)
+
+## Validation
+
+- `6 passed` with pytest
+- All 11 Streamlit pages execute successfully with the official AppTest harness
+- Emergency triage, report-grounded Demo Mode chat, ML prediction + SHAP, and appointment workflows verified interactively
