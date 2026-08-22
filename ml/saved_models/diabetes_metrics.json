@@ -1,0 +1,32 @@
+{
+  "name": "diabetes",
+  "selected_model": "Random Forest",
+  "source": "UCI CDC Diabetes Health Indicators (ID 891)",
+  "features": [
+    "HighBP",
+    "HighChol",
+    "BMI",
+    "Smoker",
+    "Stroke",
+    "HeartDiseaseorAttack",
+    "PhysActivity",
+    "GenHlth",
+    "Age"
+  ],
+  "metrics": {
+    "Logistic Regression": {
+      "accuracy": 0.7267029328287606,
+      "precision": 0.3060327606871754,
+      "recall": 0.7585231291554675,
+      "f1": 0.43611224074827165,
+      "roc_auc": 0.8142370036884201
+    },
+    "Random Forest": {
+      "accuracy": 0.7091414380321666,
+      "precision": 0.2951396290769559,
+      "recall": 0.7834205686801528,
+      "f1": 0.4287539194054117,
+      "roc_auc": 0.8148805283681844
+    }
+  }
+}
