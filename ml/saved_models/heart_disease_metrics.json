@@ -1,0 +1,36 @@
+{
+  "name": "heart_disease",
+  "selected_model": "Random Forest",
+  "source": "UCI Heart Disease (ID 45)",
+  "features": [
+    "age",
+    "sex",
+    "cp",
+    "trestbps",
+    "chol",
+    "fbs",
+    "restecg",
+    "thalach",
+    "exang",
+    "oldpeak",
+    "slope",
+    "ca",
+    "thal"
+  ],
+  "metrics": {
+    "Logistic Regression": {
+      "accuracy": 0.8688524590163934,
+      "precision": 0.8125,
+      "recall": 0.9285714285714286,
+      "f1": 0.8666666666666667,
+      "roc_auc": 0.9502164502164503
+    },
+    "Random Forest": {
+      "accuracy": 0.9016393442622951,
+      "precision": 0.84375,
+      "recall": 0.9642857142857143,
+      "f1": 0.9,
+      "roc_auc": 0.9696969696969697
+    }
+  }
+}
