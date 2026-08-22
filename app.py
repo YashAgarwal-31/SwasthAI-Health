@@ -9,8 +9,11 @@ import streamlit as st
 from reportlab.pdfgen import canvas
 from io import BytesIO
 from utils.database import init_db, execute, one, all_rows
-from utils.health import bmi, health_score, triage, extract_labs, diabetes_risk, today
+from utils.health import bmi, health_score, triage, extract_labs, today
 from utils.ai import reply
+from utils.rag import retrieve_report_chunks, format_rag_context
+from utils.trends import analyze_trends
+from ml.predictor import available_models, metadata, predict, shap_factors
 
 st.set_page_config(page_title="SwasthAI Health", page_icon="🩺", layout="wide")
 init_db()
@@ -40,7 +43,7 @@ uid=st.session_state.uid
 profile=one("SELECT * FROM profiles WHERE user_id=?",(uid,))
 name=(profile["name"] if profile and profile["name"] else "there")
 st.sidebar.title("SwasthAI Health")
-page=st.sidebar.radio("Navigate",["Dashboard","Health Profile","Daily Tracker","AI Health Assistant","Symptom Checker","Report Analyzer","Risk Prediction","Wellness Planner","Analytics & Timeline","Appointments & Emergency"])
+page=st.sidebar.radio("Navigate",["Dashboard","Health Profile","Daily Tracker","AI Health Assistant","Symptom Checker","Report Analyzer","Risk Prediction","Model Evaluation","Wellness Planner","Analytics & Timeline","Appointments & Emergency"])
 if st.sidebar.button("Logout"): st.session_state.clear(); st.rerun()
 st.caption("⚠️ Educational wellness tool only — not a diagnosis, treatment plan, or emergency service.")
 
@@ -79,7 +82,12 @@ elif page=="AI Health Assistant":
         with st.chat_message(row['role']): st.markdown(row['message'])
     q=st.chat_input("Ask about reports, habits, sleep, fitness, or preparing for a doctor visit")
     if q:
-        execute("INSERT INTO chats(user_id,created_on,role,message) VALUES(?,?,?,?)",(uid,today(),'user',q)); context=f"Profile: {dict(profile) if profile else {}}; latest log: {dict(all_rows('SELECT * FROM health_logs WHERE user_id=? ORDER BY id DESC LIMIT 1',(uid,))[0]) if all_rows('SELECT * FROM health_logs WHERE user_id=? ORDER BY id DESC LIMIT 1',(uid,)) else {}}"
+        execute("INSERT INTO chats(user_id,created_on,role,message) VALUES(?,?,?,?)",(uid,today(),'user',q))
+        recent=all_rows('SELECT * FROM health_logs WHERE user_id=? ORDER BY id DESC LIMIT 7',(uid,))
+        reports=[dict(x) for x in all_rows('SELECT filename,extracted_text FROM reports WHERE user_id=? ORDER BY id DESC',(uid,))]
+        retrieved=retrieve_report_chunks(q,reports)
+        context=(f"Profile: {dict(profile) if profile else {}}\nRecent logs: {[dict(x) for x in recent]}\n"
+                 f"Retrieved report evidence:\n{format_rag_context(retrieved)}")
         ans=reply(q,context); execute("INSERT INTO chats(user_id,created_on,role,message) VALUES(?,?,?,?)",(uid,today(),'assistant',ans)); st.rerun()
 
 elif page=="Symptom Checker":
@@ -92,18 +100,47 @@ elif page=="Report Analyzer":
     st.header("Medical Report Analyzer")
     f=st.file_uploader("Upload a text PDF report",type=['pdf','txt'])
     if f and st.button("Analyze report"):
-        raw=f.read(); text=fitz.open(stream=raw,filetype='pdf').get_page_text(0) if f.name.endswith('.pdf') else raw.decode(errors='ignore'); labs=extract_labs(text)
+        raw=f.read()
+        if f.name.endswith('.pdf'):
+            document=fitz.open(stream=raw,filetype='pdf'); text="\n".join(page.get_text() for page in document)
+        else: text=raw.decode(errors='ignore')
+        labs=extract_labs(text)
         execute("INSERT INTO reports(user_id,uploaded_on,filename,extracted_text,summary) VALUES(?,?,?,?,?)",(uid,today(),f.name,text[:10000],"Local extraction complete")); st.success("Report saved.")
         if labs: st.dataframe(pd.DataFrame(labs),use_container_width=True)
         else: st.warning("No supported common lab values were confidently extracted. Verify the original report.")
         st.markdown(reply("Explain these lab results in simple language and suggest doctor questions: "+str(labs)))
 
 elif page=="Risk Prediction":
-    st.header("Explainable Diabetes Risk Screening")
-    st.caption("Educational screening model, not a diagnosis.")
-    c=st.columns(4); age=c[0].number_input("Age",1,120,30); b=c[1].number_input("BMI",10.,70.,25.); glucose=c[2].number_input("Glucose",30.,500.,100.); bp=c[3].number_input("Systolic BP",50.,250.,120.)
-    if st.button("Estimate risk"):
-        prob,risk,factors=diabetes_risk(age,b,glucose,bp); execute("INSERT INTO predictions(user_id,created_on,model,probability,risk,factors) VALUES(?,?,?,?,?,?)",(uid,today(),'diabetes-screen',prob,risk,json.dumps(factors))); st.metric("Estimated risk",risk,f"{prob:.0%} screening probability"); st.write("**Factors used (transparent explanation):**"); st.write(factors)
+    st.header("Explainable ML Risk Screening")
+    st.caption("Models are trained from cited UCI datasets. Results are educational screening estimates, not diagnoses.")
+    models=available_models()
+    if not models:
+        st.warning("Trained model artifacts are not present yet. Run `python -m ml.train_models` once after installing requirements.")
+    else:
+        selected=st.selectbox("Screening model",models,format_func=lambda x:x.replace('_',' ').title())
+        info=metadata(selected); values={}
+        with st.form("ml_inputs"):
+            cols=st.columns(3)
+            for index,feature in enumerate(info.get("features",[])):
+                default=25.0 if feature.lower()=="bmi" else 0.0
+                values[feature]=cols[index%3].number_input(feature,value=default,key=f"ml_{selected}_{feature}")
+            submitted=st.form_submit_button("Run ML screening")
+        if submitted:
+            probability,risk=predict(selected,values); factors=shap_factors(selected,values)
+            execute("INSERT INTO predictions(user_id,created_on,model,probability,risk,factors) VALUES(?,?,?,?,?,?)",(uid,today(),selected,probability,risk,json.dumps(factors)))
+            st.metric("Estimated risk",risk,f"{probability:.1%} model probability")
+            chart=pd.DataFrame(factors); st.plotly_chart(px.bar(chart,x='impact',y='feature',orientation='h',color='impact',title='Local SHAP feature impact'),use_container_width=True)
+            st.dataframe(chart,use_container_width=True)
+
+elif page=="Model Evaluation":
+    st.header("ML Evaluation Dashboard")
+    models=available_models()
+    if not models: st.info("Train models with `python -m ml.train_models` to populate this dashboard.")
+    for model_name in models:
+        info=metadata(model_name); st.subheader(model_name.replace('_',' ').title()); st.caption(f"Dataset: {info.get('source','—')} · Selected: {info.get('selected_model','—')}")
+        metrics=info.get('metrics',{})
+        if metrics:
+            frame=pd.DataFrame(metrics).T.reset_index(names='model'); st.dataframe(frame.style.format({c:'{:.3f}' for c in ['accuracy','precision','recall','f1','roc_auc']}),use_container_width=True)
 
 elif page=="Wellness Planner":
     st.header("Personalized Wellness Planner")
@@ -115,7 +152,13 @@ elif page=="Analytics & Timeline":
     st.header("Health Analytics & Timeline")
     logs=all_rows("SELECT * FROM health_logs WHERE user_id=? ORDER BY logged_on",(uid,))
     if logs:
-        df=pd.DataFrame([dict(x) for x in logs]); st.plotly_chart(px.line(df,x='logged_on',y=['weight','glucose','sleep','water'],markers=True),use_container_width=True); st.dataframe(df[['logged_on','note','weight','glucose','sleep','steps']],use_container_width=True)
+        log_dicts=[dict(x) for x in logs]; df=pd.DataFrame(log_dicts); st.plotly_chart(px.line(df,x='logged_on',y=['weight','glucose','sleep','water'],markers=True),use_container_width=True)
+        st.subheader("Deterministic trend intelligence")
+        insights=analyze_trends(log_dicts)
+        if insights:
+            for item in insights: st.warning(item['message']) if item['severity']=='warning' else st.info(item['message'])
+        else: st.success("No configured threshold or trend alert was detected in the available logs.")
+        st.dataframe(df[['logged_on','note','weight','glucose','sleep','steps']],use_container_width=True)
     else: st.info("Add daily logs to see trends.")
 
 else:
