@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.py[cod]
+.streamlit/secrets.toml
+data/swasthai.db
+uploads/
+ml/saved_models/*.joblib
