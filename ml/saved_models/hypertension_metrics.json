@@ -1,0 +1,31 @@
+{
+  "name": "hypertension",
+  "selected_model": "Logistic Regression",
+  "source": "UCI CDC Diabetes Health Indicators (ID 891)",
+  "features": [
+    "HighChol",
+    "BMI",
+    "Smoker",
+    "Stroke",
+    "HeartDiseaseorAttack",
+    "PhysActivity",
+    "GenHlth",
+    "Age"
+  ],
+  "metrics": {
+    "Logistic Regression": {
+      "accuracy": 0.7197256385998108,
+      "precision": 0.6561155246607083,
+      "recall": 0.7285215473674538,
+      "f1": 0.6904253929551095,
+      "roc_auc": 0.7942335993112927
+    },
+    "Random Forest": {
+      "accuracy": 0.7147981709239988,
+      "precision": 0.6478719092014593,
+      "recall": 0.7343103923550491,
+      "f1": 0.6883883194073563,
+      "roc_auc": 0.7916947855419288
+    }
+  }
+}
